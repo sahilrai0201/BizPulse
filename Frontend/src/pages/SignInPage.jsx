@@ -1,20 +1,46 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 function SignInPage() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
+  const demoCredentials = {
+    email: "demo@bizz.com",
+    password: "demo1234",
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login Data:", formData);
-    // Add login logic here
+    setError("");
+
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/v1/user/login`,
+        formData
+      );
+
+      const data = response.data;
+      localStorage.setItem("token", data.token);
+      navigate("/overview");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Login failed";
+      setError(message);
+    }
+  };
+
+  const handleDemoLogin = () => {
+    localStorage.setItem("token", "demo-token");
+    navigate("/overview");
   };
 
   return (
@@ -73,6 +99,19 @@ function SignInPage() {
         >
           Sign In
         </button>
+        <button
+          type="button"
+          onClick={handleDemoLogin}
+          className="w-full mt-3 bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 transition"
+        >
+          Demo Login
+        </button>
+        {error && (
+          <p className="text-center text-red-400 mt-4">{error}</p>
+        )}
+        <p className="text-center text-gray-100 mt-4">
+          Use demo credentials: <strong>demo@bizz.com</strong> / <strong>demo1234</strong>
+        </p>
         <p className="text-center text-gray-100 mt-4">
           Don't have an account?{" "}
           <a href="/login" className="text-blue-500 hover:underline">

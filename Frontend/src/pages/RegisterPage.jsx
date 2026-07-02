@@ -1,19 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from 'axios'
+import axios from "axios";
 
 function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [businessName, setbusinessName] = useState('');
-  const [mobileNumber, setmobileNumber] = useState('');
-  const [gstNumber, setgstNumber] = useState('');
-
-
   const navigate = useNavigate();
-
-
-
   const [formData, setFormData] = useState({
     gstNumber: "",
     mobileNumber: "",
@@ -21,6 +11,7 @@ function RegisterPage() {
     password: "",
     businessName: "",
   });
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,30 +20,35 @@ function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const newUser = {
-      gstNumber: gstNumber,
-      mobileNumber: mobileNumber,
-      businessName: businessName,
-      password: password,
-      email: email,
+    setError("");
+
+    try {
+      const payload = {
+        ...formData,
+        mobileNumber: Number(formData.mobileNumber),
+        gstNumber: Number(formData.gstNumber),
+      };
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/v1/user/`,
+        payload
+      );
+
+      if (response.status === 201) {
+        navigate("/login");
+      }
+
+      setFormData({
+        gstNumber: "",
+        mobileNumber: "",
+        email: "",
+        password: "",
+        businessName: "",
+      });
+    } catch (err) {
+      const message = err?.response?.data?.message || "Registration failed";
+      setError(message);
     }
-    const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/v1/user/`, newUser);
-
-    if (response.status == 201) {
-      const data = response.data
-      console.log(data);
-      // localStorage.setItem('token', data.token)
-      navigate('/')
-    }
-
-    setEmail('');
-    setFormData('');
-    setPassword('');
-    setbusinessName('');
-    setgstNumber('');
-
-
-
   };
 
   return (
@@ -156,10 +152,13 @@ function RegisterPage() {
         >
           Register
         </button>
+        {error && (
+          <p className="text-center text-red-500 mt-4">{error}</p>
+        )}
         <p className="text-center text-gray-600 mt-4">
           Already have an account?{" "}
           <a
-            href="/"
+            href="/login"
             className="text-blue-500 hover:underline"
           >
             Sign In

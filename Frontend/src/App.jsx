@@ -15,15 +15,16 @@ import RegisterPage from "./pages/RegisterPage";
 import SignInPage from "./pages/SignInPage";
 
 function App() {
-    const isAuthPage = ['/login', '/'].includes(window.location.pathname);
+    const isAuthPage = ['/login', '/register', '/'].includes(window.location.pathname);
     
     return (
         <div className='flex h-screen text-gray-100 overflow-hidden'>
             {!isAuthPage && <Sidebar />}
             
             <Routes>
-                <Route path='/login' element={<RegisterPage />} />
                 <Route path='/' element={<SignInPage />} />
+                <Route path='/login' element={<SignInPage />} />
+                <Route path='/register' element={<RegisterPage />} />
                 <Route path='/overview' element={<OverviewPage />} />
                 <Route path='/invoice' element={<InvoicePage />} />
                 <Route path='/products' element={<ProductsPage />} />
