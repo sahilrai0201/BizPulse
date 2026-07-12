@@ -7,6 +7,8 @@ import ProductCategory from "./routes/ProductCategoryRoutes.js";
 import cors from "cors";
 import Customer from "./routes/CustomerRoutes.js"
 import Invoice from "./routes/InvoiceRoutes.js";
+import Analytics from "./routes/AnalyticsRoutes.js";
+import Email from "./routes/EmailRoutes.js";
 
 
 
@@ -32,6 +34,8 @@ app.use("/api/v1/productCategory", ProductCategory);
 app.use("/api/v1/customer", Customer);
 app.use('/api/v1/user', User)
 app.use('/api/v1/invoice', Invoice)
+app.use('/api/v1/analytics', Analytics)
+app.use('/api/v1/email', Email)
 
 
 app.listen(PORT, () => {

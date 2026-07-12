@@ -11,6 +11,8 @@ const InvoiceItem = ({
   currency,
   onRowDel,
   onRowAdd,
+  productsList,
+  onProductChange,
 }) => {
   return (
     <div>
@@ -31,6 +33,8 @@ const InvoiceItem = ({
               onItemizedItemEdit={onItemizedItemEdit}
               onDelEvent={onRowDel}
               currency={currency}
+              productsList={productsList}
+              onProductChange={onProductChange}
             />
           ))}
         </tbody>
@@ -42,7 +46,14 @@ const InvoiceItem = ({
   );
 };
 
-const ItemRow = ({ item, onItemizedItemEdit, onDelEvent, currency }) => {
+const ItemRow = ({
+  item,
+  onItemizedItemEdit,
+  onDelEvent,
+  currency,
+  productsList = [],
+  onProductChange,
+}) => {
   const handleDelete = () => {
     onDelEvent(item);
   };
@@ -50,22 +61,42 @@ const ItemRow = ({ item, onItemizedItemEdit, onDelEvent, currency }) => {
   return (
     <tr>
       <td style={{ width: "100%" }}>
-        <EditableField
-          onItemizedItemEdit={onItemizedItemEdit}
-          cellData={{
-            type: "text",
-            name: "name",
-            placeholder: "Item name",
-            value: item.name,
-            id: item.id,
+        {/* Product Dropdown Select */}
+        <select
+          className="form-select bg-gray-800 text-white border border-gray-600 my-1"
+          style={{ padding: "0.375rem 2.25rem 0.375rem 0.75rem", fontSize: "0.875rem" }}
+          value={item.productId || ""}
+          onChange={(e) => {
+            const selectedId = e.target.value;
+            const selectedProd = productsList.find((p) => p._id === selectedId);
+            onProductChange(item.id, selectedId, selectedProd);
           }}
+        >
+          <option value="">-- Select Product from Inventory --</option>
+          {productsList.map((prod) => (
+            <option key={prod._id} value={prod._id} className="text-black bg-white">
+              {prod.ProductName} (Stock: {prod.quantity} {prod.unitOfMeasurement})
+            </option>
+          ))}
+        </select>
+
+        {/* Display Item Name */}
+        <input
+          type="text"
+          className="form-control bg-transparent text-white border-0 py-1 px-2 font-semibold"
+          placeholder="Item Name (Auto-filled)"
+          value={item.name}
+          readOnly
+          style={{ pointerEvents: "none" }}
         />
+
+        {/* Editable Item Description */}
         <EditableField
           onItemizedItemEdit={onItemizedItemEdit}
           cellData={{
             type: "text",
             name: "description",
-            placeholder: "Item description",
+            placeholder: "Additional notes or description",
             value: item.description,
             id: item.id,
           }}
