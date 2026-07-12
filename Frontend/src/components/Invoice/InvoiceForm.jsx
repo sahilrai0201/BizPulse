@@ -8,8 +8,9 @@ import Card from "react-bootstrap/Card";
 import InvoiceItem from "./InvoiceItem";
 import InvoiceModal from "./InvoiceModal";
 import InputGroup from "react-bootstrap/InputGroup";
+import axios from "axios";
 
-const InvoiceForm = () => {
+const InvoiceForm = ({ onInvoiceSaved }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currency, setCurrency] = useState("$");
   const [currentDate, setCurrentDate] = useState(
@@ -21,6 +22,8 @@ const InvoiceForm = () => {
   const [billToEmail, setBillToEmail] = useState("");
   const [billToAddress, setBillToAddress] = useState("");
   const [billToMobileNumber, setbillToMobileNumber] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  
   const [billFrom, setBillFrom] = useState("Amazing Company");
   const [billFromEmail, setBillFromEmail] = useState("Amazing@gmail.com");
   const [billFromMobileNumber, setbillFromMobileNumber] = useState("756889898");
@@ -34,37 +37,117 @@ const InvoiceForm = () => {
   const [taxAmount, setTaxAmount] = useState("0.00");
   const [discountRate, setDiscountRate] = useState("");
   const [discountAmount, setDiscountAmount] = useState("0.00");
+  const [templateTheme, setTemplateTheme] = useState("Modern");
+  const [brandColor, setBrandColor] = useState("Indigo");
+
+  const [productsList, setProductsList] = useState([]);
+  const [customersList, setCustomersList] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [items, setItems] = useState([
     {
       id: (+new Date() + Math.floor(Math.random() * 999999)).toString(36),
+      productId: "",
       name: "",
       description: "",
       price: "1.00",
       quantity: 1,
+      gstRate: 0,
     },
   ]);
 
-  const handleCalculateTotal = useCallback(() => {
-    let newSubTotal = items
-      .reduce((acc, item) => {
-        return acc + parseFloat(item.price) * parseInt(item.quantity);
-      }, 0)
-      .toFixed(2);
+  // Fetch initial data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const custRes = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/v1/customer/getall`);
+        setCustomersList(custRes.data);
+        
+        const prodRes = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/v1/product/getall`);
+        if (prodRes.status === 200) {
+          setProductsList(prodRes.data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching customers/products:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
-    let newtaxAmount = (newSubTotal * (taxRate / 100)).toFixed(2);
-    let newdiscountAmount = (newSubTotal * (discountRate / 100)).toFixed(2);
+  const handleCustomerChange = (e) => {
+    const value = e.target.value;
+    setSelectedCustomerId(value);
+    
+    if (value === "new") {
+      setIsNewCustomer(true);
+      setBillTo("");
+      setBillToEmail("");
+      setbillToMobileNumber("");
+      setBillToAddress("");
+      setGstNumber("");
+    } else {
+      setIsNewCustomer(false);
+      const cust = customersList.find((c) => c._id === value);
+      if (cust) {
+        setBillTo(cust.BusinessName);
+        setBillToEmail(cust.email);
+        setbillToMobileNumber(cust.mobileNumber.toString());
+        setBillToAddress(cust.BillingAddress);
+        setGstNumber(cust.gstNumber.toString());
+      } else {
+        setBillTo("");
+        setBillToEmail("");
+        setbillToMobileNumber("");
+        setBillToAddress("");
+        setGstNumber("");
+      }
+    }
+  };
+
+  const onProductChange = (rowId, productId, productObj) => {
+    const updatedItems = items.map((item) => {
+      if (item.id === rowId) {
+        const gstRate = productObj && productObj.category ? productObj.category.gstRate : 0;
+        return {
+          ...item,
+          productId: productId,
+          name: productObj ? productObj.ProductName : "",
+          price: productObj ? productObj.cost.toString() : "1.00",
+          description: productObj ? `${productObj.ProductName} (${productObj.unitOfMeasurement})` : "",
+          gstRate: gstRate,
+        };
+      }
+      return item;
+    });
+    setItems(updatedItems);
+  };
+
+  const handleCalculateTotal = useCallback(() => {
+    let newSubTotal = items.reduce((acc, item) => {
+      return acc + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+    }, 0);
+
+    let calculatedTaxAmount = items.reduce((acc, item) => {
+      const price = parseFloat(item.price) || 0;
+      const qty = parseInt(item.quantity) || 0;
+      const rate = parseFloat(item.gstRate) || 0;
+      return acc + (price * qty * (rate / 100));
+    }, 0);
+
+    let newdiscountAmount = (newSubTotal * (discountRate / 100));
     let newTotal = (
       newSubTotal -
       newdiscountAmount +
-      parseFloat(newtaxAmount)
+      calculatedTaxAmount
     ).toFixed(2);
 
-    setSubTotal(newSubTotal);
-    setTaxAmount(newtaxAmount);
-    setDiscountAmount(newdiscountAmount);
+    setSubTotal(newSubTotal.toFixed(2));
+    setTaxAmount(calculatedTaxAmount.toFixed(2));
+    setDiscountAmount(newdiscountAmount.toFixed(2));
     setTotal(newTotal);
-  }, [items, taxRate, discountRate]);
+  }, [items, discountRate]);
 
   useEffect(() => {
     handleCalculateTotal();
@@ -79,19 +162,18 @@ const InvoiceForm = () => {
     const id = (+new Date() + Math.floor(Math.random() * 999999)).toString(36);
     const newItem = {
       id,
+      productId: "",
       name: "",
       price: "1.00",
       description: "",
       quantity: 1,
+      gstRate: 0,
     };
     setItems([...items, newItem]);
   };
 
   const onItemizedItemEdit = (evt) => {
     const { id, name, value } = evt.target;
-
-    console.log(id, name, value);
-
     const updatedItems = items.map((item) =>
       item.id === id ? { ...item, [name]: value } : item
     );
@@ -113,12 +195,69 @@ const InvoiceForm = () => {
     setIsOpen(false);
   };
 
+  const handleSaveInvoice = async () => {
+    setIsSaving(true);
+    try {
+      let finalCustomerId = selectedCustomerId;
+
+      // 1. If it's a new customer, save customer first
+      if (isNewCustomer || !selectedCustomerId) {
+        if (!billTo || !billToEmail || !billToMobileNumber || !gstNumber || !billToAddress) {
+          alert("Please fill all billing customer details.");
+          setIsSaving(false);
+          return;
+        }
+        const custRes = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/v1/customer`, {
+          BusinessName: billTo,
+          email: billToEmail,
+          mobileNumber: Number(billToMobileNumber),
+          gstNumber: Number(gstNumber),
+          BillingAddress: billToAddress,
+        });
+        finalCustomerId = custRes.data._id;
+      }
+
+      // 2. Map items to productDetails expected by backend
+      const productDetails = items.map((item) => {
+        if (!item.productId) {
+          throw new Error("One or more items do not have a selected product.");
+        }
+        return {
+          product: item.productId,
+          ProductQuantity: Number(item.quantity),
+        };
+      });
+
+      // 3. Register the Invoice
+      const invoiceData = {
+        InvoiceNumber: Number(invoiceNumber),
+        productDetails,
+        customerDetails: finalCustomerId,
+        InvoiceAmount: Number(total),
+        DateofIssue: dateOfIssue,
+        subTotal: Number(subTotal),
+      };
+
+      const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/v1/invoice/register`, invoiceData);
+      if (response.status === 201) {
+        alert("Invoice registered successfully!");
+        setIsOpen(false);
+        if (onInvoiceSaved) onInvoiceSaved();
+      }
+    } catch (err) {
+      console.error("Error saving invoice:", err);
+      alert(err.response?.data?.message || err.message || "Failed to save invoice.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Form onSubmit={openModal}>
       <Row>
         <Col md={8} lg={9}>
-          <Card className="p-4 p-xl-5 my-3 my-xl-4 bg-gray-600" >
-            <div className="d-flex flex-row align-items-start justify-content-between mb-3">
+          <Card className="p-4 p-xl-5 my-3 my-xl-4 bg-gray-600">
+            <div className="d-flex flex-row align-items-start justify-content-between mb-3 text-left">
               <div className="d-flex flex-column">
                 <div className="d-flex flex-column">
                   <div className="mb-2">
@@ -152,58 +291,89 @@ const InvoiceForm = () => {
               </div>
             </div>
             <hr className="my-4" />
-            <Row className="mb-5">
+            <Row className="mb-5 text-left">
               <Col>
                 <Form.Label className="fw-bold">Bill from:</Form.Label>
                 <div className="fw-bold">{billFrom}</div>
-                <div className="fw-bold">{billFromEmail}</div>
-                <div className="fw-bold">{billFromMobileNumber}</div>
-                <div className="fw-bold">{billFromAddress}</div>
-                
+                <div className="fw-bold text-gray-300">{billFromEmail}</div>
+                <div className="fw-bold text-gray-300">{billFromMobileNumber}</div>
+                <div className="fw-bold text-gray-300">{billFromAddress}</div>
               </Col>
               <Col>
                 <Form.Label className="fw-bold">Bill to:</Form.Label>
-                <Form.Control
-                  placeholder="Who is this invoice to?"
-                  rows={3}
-                  value={billTo}
-                  type="text"
-                  name="billTo"
-                  className="my-2"
-                  onChange={handleChange(setBillTo)}
-                  autoComplete="name"
-                  required
-                />
-                <Form.Control
-                  placeholder="Email address"
-                  value={billToEmail}
-                  type="email"
-                  name="billToEmail"
-                  className="my-2"
-                  onChange={handleChange(setBillToEmail)}
-                  autoComplete="email"
-                  required
-                />
-                <Form.Control
-                  placeholder="Mobile Number"
-                  value={billToMobileNumber}
-                  type="number"
-                  name="billToMobileNumber"
-                  className="my-2"
-                  autoComplete="Mobile Number"
-                  onChange={handleChange(setbillToMobileNumber)}
-                  required
-                />
-                <Form.Control
-                  placeholder="Billing address"
-                  value={billToAddress}
-                  type="text"
-                  name="billToAddress"
-                  className="my-2"
-                  autoComplete="address"
-                  onChange={handleChange(setBillToAddress)}
-                  required
-                />
+                <Form.Select
+                  className="mb-3 bg-gray-800 text-white border-secondary"
+                  value={selectedCustomerId}
+                  onChange={handleCustomerChange}
+                >
+                  <option value="">-- Select Existing Customer --</option>
+                  {customersList.map((cust) => (
+                    <option key={cust._id} value={cust._id}>
+                      {cust.BusinessName}
+                    </option>
+                  ))}
+                  <option value="new">+ Add New Customer</option>
+                </Form.Select>
+
+                {(isNewCustomer || !selectedCustomerId) && (
+                  <>
+                    <Form.Control
+                      placeholder="Who is this invoice to?"
+                      value={billTo}
+                      type="text"
+                      name="billTo"
+                      className="my-2 bg-gray-800 text-white border-secondary"
+                      onChange={handleChange(setBillTo)}
+                      required
+                    />
+                    <Form.Control
+                      placeholder="Email address"
+                      value={billToEmail}
+                      type="email"
+                      name="billToEmail"
+                      className="my-2 bg-gray-800 text-white border-secondary"
+                      onChange={handleChange(setBillToEmail)}
+                      required
+                    />
+                    <Form.Control
+                      placeholder="Mobile Number"
+                      value={billToMobileNumber}
+                      type="number"
+                      name="billToMobileNumber"
+                      className="my-2 bg-gray-800 text-white border-secondary"
+                      onChange={handleChange(setbillToMobileNumber)}
+                      required
+                    />
+                    <Form.Control
+                      placeholder="GST Number"
+                      value={gstNumber}
+                      type="number"
+                      name="gstNumber"
+                      className="my-2 bg-gray-800 text-white border-secondary"
+                      onChange={(e) => setGstNumber(e.target.value)}
+                      required
+                    />
+                    <Form.Control
+                      placeholder="Billing address"
+                      value={billToAddress}
+                      type="text"
+                      name="billToAddress"
+                      className="my-2 bg-gray-800 text-white border-secondary"
+                      onChange={handleChange(setBillToAddress)}
+                      required
+                    />
+                  </>
+                )}
+
+                {!isNewCustomer && selectedCustomerId && (
+                  <div className="bg-gray-700 bg-opacity-50 p-3 rounded-lg border border-gray-600 text-sm text-gray-200">
+                    <p className="font-semibold text-gray-100">{billTo}</p>
+                    <p>Email: {billToEmail}</p>
+                    <p>Mobile: {billToMobileNumber}</p>
+                    <p>GSTIN: {gstNumber}</p>
+                    <p>Address: {billToAddress}</p>
+                  </div>
+                )}
               </Col>
             </Row>
             <InvoiceItem
@@ -212,8 +382,10 @@ const InvoiceForm = () => {
               onRowDel={handleRowDel}
               currency={currency}
               items={items}
+              productsList={productsList}
+              onProductChange={onProductChange}
             />
-            <Row className="mt-4 justify-content-end">
+            <Row className="mt-4 justify-content-end text-left">
               <Col lg={6}>
                 <div className="d-flex flex-row align-items-start justify-content-between">
                   <span className="fw-bold">Subtotal:</span>
@@ -265,22 +437,25 @@ const InvoiceForm = () => {
           </Card>
         </Col>
         <Col md={4} lg={3}>
-          <div className="sticky-top pt-md-3 pt-xl-4">
+          <div className="sticky-top pt-md-3 pt-xl-4 text-left">
             <InvoiceModal
               showModal={isOpen}
               closeModal={closeModal}
               info={{
                 dateOfIssue,
-                invoiceNumber,
                 billTo,
                 billToEmail,
-                billToMobileNumber,
                 billToAddress,
+                billToMobileNumber,
+                gstNumber,
                 billFrom,
                 billFromEmail,
-                billFromMobileNumber,
                 billFromAddress,
+                billFromMobileNumber,
                 notes,
+                invoiceNumber,
+                templateTheme,
+                brandColor,
               }}
               items={items}
               currency={currency}
@@ -288,10 +463,12 @@ const InvoiceForm = () => {
               taxAmount={taxAmount}
               discountAmount={discountAmount}
               total={total}
+              onSaveInvoice={handleSaveInvoice}
+              isSaving={isSaving}
             />
 
             <Form.Group className="mb-3">
-            <Form.Label className="fw-bold text-white">Currency:</Form.Label>
+              <Form.Label className="fw-bold text-white">Currency:</Form.Label>
               <Form.Select
                 onChange={(e) => {
                   setCurrency(e.target.value);
@@ -311,43 +488,60 @@ const InvoiceForm = () => {
               </Form.Select>
             </Form.Group>
             <Form.Group className="my-3">
-              <Form.Label className="fw-bold text-white">Tax rate:</Form.Label>
+              <Form.Label className="fw-bold text-white">Tax (Auto-calculated GST):</Form.Label>
               <InputGroup className="my-1 flex-nowrap">
                 <Form.Control
-                  name="taxRate"
-                  type="number"
-                  value={taxRate}
-                  onChange={handleChange(setTaxRate)}
-                  className="bg-white border"
-                  placeholder="0.0"
-                  min="0.00"
-                  step="0.01"
-                  max="100.00"
+                  type="text"
+                  value={`${currency}${taxAmount}`}
+                  className="bg-gray-700 text-white border-0"
+                  readOnly
+                  disabled
                 />
-                <InputGroup.Text className="bg-light fw-bold text-secondary small">
-                  %
-                </InputGroup.Text>
               </InputGroup>
             </Form.Group>
-            <Form.Group className="my-3">
-              <Form.Label className="fw-bold text-white">Discount rate:</Form.Label>
-              <InputGroup className="my-1 flex-nowrap">
-                <Form.Control
-                  name="discountRate"
-                  type="number"
-                  value={discountRate}
-                  onChange={handleChange(setDiscountRate)}
-                  className="bg-white border"
-                  placeholder="0.0"
-                  min="0.00"
-                  step="0.01"
-                  max="100.00"
-                />
-                <InputGroup.Text className="bg-light fw-bold text-secondary small">
-                  %
-                </InputGroup.Text>
-              </InputGroup>
-            </Form.Group>
+             <Form.Group className="my-3">
+               <Form.Label className="fw-bold text-white">Discount rate:</Form.Label>
+               <InputGroup className="my-1 flex-nowrap">
+                 <Form.Control
+                   name="discountRate"
+                   type="number"
+                   value={discountRate}
+                   onChange={handleChange(setDiscountRate)}
+                   className="bg-white border"
+                   placeholder="0.0"
+                   min="0.00"
+                   step="0.01"
+                   max="100.00"
+                 />
+                 <InputGroup.Text className="bg-light fw-bold text-secondary small">
+                   %
+                 </InputGroup.Text>
+               </InputGroup>
+             </Form.Group>
+             <Form.Group className="my-3 text-left">
+               <Form.Label className="fw-bold text-white">Invoice Template:</Form.Label>
+               <Form.Select
+                 value={templateTheme}
+                 onChange={(e) => setTemplateTheme(e.target.value)}
+                 className="btn btn-light my-1 w-100"
+               >
+                 <option value="Modern">Modern Theme (Solid Banner)</option>
+                 <option value="Classic">Classic Theme (Border Header)</option>
+                 <option value="Minimal">Minimal Theme (Plain Text)</option>
+               </Form.Select>
+             </Form.Group>
+             <Form.Group className="my-3 text-left">
+               <Form.Label className="fw-bold text-white">Brand Accent:</Form.Label>
+               <Form.Select
+                 value={brandColor}
+                 onChange={(e) => setBrandColor(e.target.value)}
+                 className="btn btn-light my-1 w-100"
+               >
+                 <option value="Indigo">Indigo Blue</option>
+                 <option value="Emerald">Emerald Green</option>
+                 <option value="Ruby">Ruby Red</option>
+               </Form.Select>
+             </Form.Group>
             <hr className="mt-4 mb-3" />
             <Button
               variant="primary"

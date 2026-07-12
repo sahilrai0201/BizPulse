@@ -1,6 +1,7 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import Sidebar from "./components/common/Sidebar";
+import ProtectedRoute from "./components/common/ProtectedRoute";
 
 import OverviewPage from "./pages/OverviewPage";
 import ProductsPage from "./pages/ProductsPage";
@@ -15,7 +16,8 @@ import RegisterPage from "./pages/RegisterPage";
 import SignInPage from "./pages/SignInPage";
 
 function App() {
-    const isAuthPage = ['/login', '/register', '/'].includes(window.location.pathname);
+    const location = useLocation();
+    const isAuthPage = ['/login', '/register', '/'].includes(location.pathname);
     
     return (
         <div className='flex h-screen text-gray-100 overflow-hidden'>
@@ -25,14 +27,14 @@ function App() {
                 <Route path='/' element={<SignInPage />} />
                 <Route path='/login' element={<SignInPage />} />
                 <Route path='/register' element={<RegisterPage />} />
-                <Route path='/overview' element={<OverviewPage />} />
-                <Route path='/invoice' element={<InvoicePage />} />
-                <Route path='/products' element={<ProductsPage />} />
-                <Route path='/users' element={<UsersPage />} />
-                <Route path='/sales' element={<SalesPage />} />
-                <Route path='/orders' element={<OrdersPage />} />
-                <Route path='/analytics' element={<AnalyticsPage />} />
-                <Route path='/settings' element={<SettingsPage />} />
+                <Route path='/overview' element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
+                <Route path='/invoice' element={<ProtectedRoute><InvoicePage /></ProtectedRoute>} />
+                <Route path='/products' element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+                <Route path='/users' element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+                <Route path='/sales' element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
+                <Route path='/orders' element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+                <Route path='/analytics' element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+                <Route path='/settings' element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             </Routes>
         </div>
     );

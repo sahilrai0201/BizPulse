@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 
 function SignInPage() {
@@ -114,9 +114,9 @@ function SignInPage() {
         </p>
         <p className="text-center text-gray-100 mt-4">
           Don't have an account?{" "}
-          <a href="/login" className="text-blue-500 hover:underline">
+          <Link to="/register" className="text-blue-500 hover:underline">
             Register
-          </a>
+          </Link>
         </p>
       </form>
     </div>

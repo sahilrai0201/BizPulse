@@ -77,7 +77,7 @@ export const getProductId = async (req, res) => {
 export const getAllProducts = async (req, res) => {
     try {
 
-        const products = await Product.find();
+        const products = await Product.find().populate("category");
 
         if (!products || products.length === 0) {
             return res.status(404).json({
@@ -129,7 +129,7 @@ export const deleateProduct = async (req, res) => {
 export const updateProfile = async (req, res) => {
     try {
         const { ProductName, unitOfMeasurement, quantity, cost } = req.body;
-        const productId = req.id;
+        const productId = req.params.id;
         let product = await Product.findById(productId);
         if (!product) {
             return res.status(400).json({
@@ -138,7 +138,7 @@ export const updateProfile = async (req, res) => {
             });
         }
 
-        if (ProductName) product.name = ProductName;
+        if (ProductName) product.ProductName = ProductName;
         if (cost) product.cost = cost;
         if (unitOfMeasurement) product.unitOfMeasurement = unitOfMeasurement;
         if (quantity) product.quantity = quantity;

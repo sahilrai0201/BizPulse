@@ -1,0 +1,13 @@
+{
+  "name": "bizpulse-root",
+  "version": "1.0.0",
+  "description": "BizPulse Root Orchestration Package",
+  "scripts": {
+    "backend": "npm start --prefix Backend",
+    "frontend": "npm run dev --prefix Frontend",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
