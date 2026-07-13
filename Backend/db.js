@@ -18,10 +18,10 @@ const seedDatabase = async () => {
     console.log("Checking database seeds...");
 
     // 1. Seed default user if not exists
-    const userExists = await User.findOne({ email: "demo@bizz.com" });
-    if (!userExists) {
+    let demoUser = await User.findOne({ email: "demo@bizz.com" });
+    if (!demoUser) {
       const hashedPassword = await bcrypt.hash("demo1234", 10);
-      await User.create({
+      demoUser = await User.create({
         BusinessName: "Demo Corp",
         email: "demo@bizz.com",
         password: hashedPassword,
@@ -58,21 +58,24 @@ const seedDatabase = async () => {
         unitOfMeasurement: "pcs",
         quantity: 150,
         cost: 49.99,
-        category: electronicsId
+        category: electronicsId,
+        userId: demoUser._id
       });
       const p2 = await Product.create({
         ProductName: "Designer Jeans",
         unitOfMeasurement: "pcs",
         quantity: 80,
         cost: 79.99,
-        category: clothingId
+        category: clothingId,
+        userId: demoUser._id
       });
       const p3 = await Product.create({
         ProductName: "JS Guide Book",
         unitOfMeasurement: "box",
         quantity: 45,
         cost: 29.99,
-        category: booksId
+        category: booksId,
+        userId: demoUser._id
       });
       earbudId = p1._id;
       jeansId = p2._id;
@@ -94,14 +97,16 @@ const seedDatabase = async () => {
         email: "john@doecorp.com",
         mobileNumber: 9876543210,
         gstNumber: 271234567890,
-        BillingAddress: "123 Business Rd, New York"
+        BillingAddress: "123 Business Rd, New York",
+        userId: demoUser._id
       });
       const c2 = await Customer.create({
         BusinessName: "Jane Smith LLC",
         email: "jane@smithllc.com",
         mobileNumber: 8765432109,
         gstNumber: 279876543210,
-        BillingAddress: "456 Commerce St, San Francisco"
+        BillingAddress: "456 Commerce St, San Francisco",
+        userId: demoUser._id
       });
       johnId = c1._id;
       janeId = c2._id;
@@ -124,7 +129,8 @@ const seedDatabase = async () => {
         ],
         InvoiceAmount: 179.97,
         DateofIssue: "2026-06-15",
-        subTotal: 179.97
+        subTotal: 179.97,
+        userId: demoUser._id
       });
       const inv2 = await Invoice.create({
         InvoiceNumber: 1002,
@@ -134,7 +140,8 @@ const seedDatabase = async () => {
         ],
         InvoiceAmount: 299.90,
         DateofIssue: "2026-07-12",
-        subTotal: 299.90
+        subTotal: 299.90,
+        userId: demoUser._id
       });
 
       // Distribute months to test the Recharts overview sales trend chart

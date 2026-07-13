@@ -1,15 +1,14 @@
 import Customer from "../models/CustomerModel.js";
 
-
 // Register a new customer
 export const registerCustomer = async (req, res) => {
     try {
         const { BusinessName, email, mobileNumber, gstNumber, BillingAddress } = req.body;
 
-        // Check if customer already exists
-        const existingCustomer = await Customer.findOne({ email });
+        // Check if customer already exists for this business user
+        const existingCustomer = await Customer.findOne({ email, userId: req.user.id });
         if (existingCustomer) {
-            return res.status(400).json({ message: "Customer already exists" });
+            return res.status(400).json({ message: "Customer already exists for your business" });
         }
 
         // Create a new customer
@@ -19,6 +18,7 @@ export const registerCustomer = async (req, res) => {
             mobileNumber,
             gstNumber,
             BillingAddress,
+            userId: req.user.id
         });
 
         const savedCustomer = await newCustomer.save();
@@ -31,7 +31,7 @@ export const registerCustomer = async (req, res) => {
 // Get customer by ID
 export const getCustomerId = async (req, res) => {
     try {
-        const customer = await Customer.findById(req.params.id);
+        const customer = await Customer.findOne({ _id: req.params.id, userId: req.user.id });
         if (!customer) {
             return res.status(404).json({ message: "Customer not found" });
         }
@@ -47,7 +47,11 @@ export const updateCustomer = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
-        const updatedCustomer = await Customer.findByIdAndUpdate(id, updates, { new: true });
+        const updatedCustomer = await Customer.findOneAndUpdate(
+            { _id: id, userId: req.user.id },
+            updates,
+            { new: true }
+        );
 
         if (!updatedCustomer) {
             return res.status(404).json({ message: "Customer not found" });
@@ -63,7 +67,7 @@ export const updateCustomer = async (req, res) => {
 export const deleteCustomer = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedCustomer = await Customer.findByIdAndDelete(id);
+        const deletedCustomer = await Customer.findOneAndDelete({ _id: id, userId: req.user.id });
 
         if (!deletedCustomer) {
             return res.status(404).json({ message: "Customer not found" });
@@ -78,7 +82,7 @@ export const deleteCustomer = async (req, res) => {
 // Get all customers
 export const getAllCustomers = async (req, res) => {
     try {
-        const customers = await Customer.find(); // Retrieve all customers
+        const customers = await Customer.find({ userId: req.user.id }); // Retrieve user's customers
         res.status(200).json(customers);
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -1,13 +1,14 @@
 import express from "express";
 import nodemailer from "nodemailer";
 import Invoice from "../models/InvoicesModel.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/:id/email", async (req, res) => {
+router.post("/:id/email", protect, async (req, res) => {
   try {
     const invoiceId = req.params.id;
-    const invoice = await Invoice.findById(invoiceId).populate("customerDetails");
+    const invoice = await Invoice.findOne({ _id: invoiceId, userId: req.user.id }).populate("customerDetails");
 
     if (!invoice) {
       return res.status(404).json({ success: false, message: "Invoice not found" });

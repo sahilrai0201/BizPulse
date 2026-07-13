@@ -1,7 +1,10 @@
 import express from "express";
 import { registerInvoice, getAllInvoices, getInvoiceById, deleteInvoiceById, updateInvoiceById } from "../controllers/invoiceController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.use(protect);
 
 router.post("/register", registerInvoice);
 router.get("/", getAllInvoices);

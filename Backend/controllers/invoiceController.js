@@ -1,28 +1,28 @@
-import Invoice from "../models/InvoicesModel.js"; // Adjust the path as necessary
-import Customer from "../models/CustomerModel.js"; // Ensure you have access to the Customer model for validation
-import Product from "../models/ProductModel.js"; // Ensure you have access to the Product model for validation
+import Invoice from "../models/InvoicesModel.js";
+import Customer from "../models/CustomerModel.js";
+import Product from "../models/ProductModel.js";
 
 export const registerInvoice = async (req, res) => {
     try {
         const { InvoiceNumber, productDetails, customerDetails, InvoiceAmount, DateofIssue, subTotal } = req.body;
 
-        // Check if invoice already exists
-        const existingInvoice = await Invoice.findOne({ InvoiceNumber });
+        // Check if invoice already exists for this business user
+        const existingInvoice = await Invoice.findOne({ InvoiceNumber, userId: req.user.id });
         if (existingInvoice) {
             return res.status(400).json({ message: "Invoice already exists" });
         }
 
-        // Validate customer existence
-        const customer = await Customer.findById(customerDetails);
+        // Validate customer existence for this user
+        const customer = await Customer.findOne({ _id: customerDetails, userId: req.user.id });
         if (!customer) {
-            return res.status(400).json({ message: "Customer not found" });
+            return res.status(400).json({ message: "Customer not found or not owned by you" });
         }
 
-        // Validate products and quantities
+        // Validate products and quantities for this user
         for (const item of productDetails) {
-            const product = await Product.findById(item.product);
+            const product = await Product.findOne({ _id: item.product, userId: req.user.id });
             if (!product) {
-                return res.status(400).json({ message: `Product with ID ${item.product} not found` });
+                return res.status(400).json({ message: `Product with ID ${item.product} not found or not owned by you` });
             }
             if (!item.ProductQuantity || item.ProductQuantity <= 0) {
                 return res.status(400).json({ message: "Invalid product quantity" });
@@ -37,6 +37,7 @@ export const registerInvoice = async (req, res) => {
             InvoiceAmount,
             DateofIssue,
             subTotal,
+            userId: req.user.id
         });
 
         const savedInvoice = await newInvoice.save();
@@ -48,7 +49,7 @@ export const registerInvoice = async (req, res) => {
 
 export const getAllInvoices = async (req, res) => {
     try {
-        const invoices = await Invoice.find()
+        const invoices = await Invoice.find({ userId: req.user.id })
             .populate("customerDetails", "BusinessName email") // Adjust fields as needed
             .populate("productDetails.product", "name price"); // Adjust fields as needed
         res.status(200).json(invoices);
@@ -60,7 +61,7 @@ export const getAllInvoices = async (req, res) => {
 export const getInvoiceById = async (req, res) => {
     try {
         const { id } = req.params;
-        const invoice = await Invoice.findById(id)
+        const invoice = await Invoice.findOne({ _id: id, userId: req.user.id })
             .populate("customerDetails", "BusinessName email")
             .populate("productDetails.product", "name price");
 
@@ -77,7 +78,7 @@ export const getInvoiceById = async (req, res) => {
 export const deleteInvoiceById = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedInvoice = await Invoice.findByIdAndDelete(id);
+        const deletedInvoice = await Invoice.findOneAndDelete({ _id: id, userId: req.user.id });
 
         if (!deletedInvoice) {
             return res.status(404).json({ message: "Invoice not found" });
@@ -96,18 +97,18 @@ export const updateInvoiceById = async (req, res) => {
 
         // Validate customer existence if updated
         if (customerDetails) {
-            const customer = await Customer.findById(customerDetails);
+            const customer = await Customer.findOne({ _id: customerDetails, userId: req.user.id });
             if (!customer) {
-                return res.status(400).json({ message: "Customer not found" });
+                return res.status(400).json({ message: "Customer not found or not owned by you" });
             }
         }
 
         // Validate products and quantities if updated
         if (productDetails) {
             for (const item of productDetails) {
-                const product = await Product.findById(item.product);
+                const product = await Product.findOne({ _id: item.product, userId: req.user.id });
                 if (!product) {
-                    return res.status(400).json({ message: `Product with ID ${item.product} not found` });
+                    return res.status(400).json({ message: `Product with ID ${item.product} not found or not owned by you` });
                 }
                 if (!item.ProductQuantity || item.ProductQuantity <= 0) {
                     return res.status(400).json({ message: "Invalid product quantity" });
@@ -115,8 +116,8 @@ export const updateInvoiceById = async (req, res) => {
             }
         }
 
-        const updatedInvoice = await Invoice.findByIdAndUpdate(
-            id,
+        const updatedInvoice = await Invoice.findOneAndUpdate(
+            { _id: id, userId: req.user.id },
             { InvoiceNumber, productDetails, customerDetails, InvoiceAmount, DateofIssue, subTotal },
             { new: true }
         )
