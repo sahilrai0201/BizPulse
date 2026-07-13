@@ -1,17 +1,19 @@
 import Product from "../models/ProductModel.js";
 import Customer from "../models/CustomerModel.js";
 import Invoice from "../models/InvoicesModel.js";
+import mongoose from "mongoose";
 
 // Get Overview Stats (Revenues, Products, Customers counts)
 export const getOverviewStats = async (req, res) => {
   try {
     const salesAggregation = await Invoice.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id) } },
       { $group: { _id: null, total: { $sum: "$InvoiceAmount" } } }
     ]);
     const totalSales = salesAggregation.length > 0 ? salesAggregation[0].total : 0;
 
-    const totalProducts = await Product.countDocuments();
-    const totalCustomers = await Customer.countDocuments();
+    const totalProducts = await Product.countDocuments({ userId: req.user.id });
+    const totalCustomers = await Customer.countDocuments({ userId: req.user.id });
 
     return res.status(200).json({
       success: true,
@@ -33,6 +35,7 @@ export const getOverviewStats = async (req, res) => {
 export const getSalesTrend = async (req, res) => {
   try {
     const trend = await Invoice.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id) } },
       {
         $group: {
           _id: { $month: "$createdAt" },
@@ -69,6 +72,7 @@ export const getSalesTrend = async (req, res) => {
 export const getCategoryStats = async (req, res) => {
   try {
     const stats = await Product.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id) } },
       {
         $lookup: {
           from: "productcategories",
