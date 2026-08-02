@@ -33,7 +33,7 @@ function RegisterPage() {
       const payload = {
         ...formData,
         mobileNumber: Number(formData.mobileNumber),
-        gstNumber: Number(formData.gstNumber),
+        gstNumber: String(formData.gstNumber).trim(),
         captchaToken,
       };
 

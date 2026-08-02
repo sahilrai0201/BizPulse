@@ -211,7 +211,7 @@ const InvoiceForm = ({ onInvoiceSaved }) => {
           BusinessName: billTo,
           email: billToEmail,
           mobileNumber: Number(billToMobileNumber),
-          gstNumber: Number(gstNumber),
+          gstNumber: String(gstNumber).trim(),
           BillingAddress: billToAddress,
         });
         finalCustomerId = custRes.data._id;

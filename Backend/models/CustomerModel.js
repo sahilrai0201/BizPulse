@@ -20,7 +20,7 @@ const CustomerSchema = new mongoose.Schema({
         required: true,
     },
     gstNumber: {
-        type: Number,
+        type: String,
         required: true,
     },
     BillingAddress: {
