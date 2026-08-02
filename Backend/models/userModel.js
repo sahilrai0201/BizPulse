@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema({
         required: true,
     },
     gstNumber: {
-        type: Number,
+        type: String,
         required: true,
     }
 }, { timestamps: true });

@@ -2,6 +2,7 @@ import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { verifyTurnstile } from "../utils/captcha.js";
+import { seedUserData } from "../utils/seeder.js";
 
 // Register a new user
 export const registerUser = async (req, res) => {
@@ -33,6 +34,10 @@ export const registerUser = async (req, res) => {
         });
 
         const savedUser = await newUser.save();
+        
+        // Seed default template data for this new business user
+        await seedUserData(savedUser._id);
+        
         res.status(201).json(savedUser);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -142,6 +147,18 @@ export const logoutUser = (req, res) => {
     try {
         // Clear the token (if stored in cookies or frontend)
         res.status(200).json({ message: "User logged out successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get logged-in user profile
+export const getUserProfile = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        res.status(200).json(req.user);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
