@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-    origin: 'http://localhost:5173', // Replace with your frontend URL
+    origin: ["http://localhost:5173", "https://bizpulse-1.onrender.com"]
 }));
 
 
