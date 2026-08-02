@@ -9,6 +9,7 @@ import InvoiceItem from "./InvoiceItem";
 import InvoiceModal from "./InvoiceModal";
 import InputGroup from "react-bootstrap/InputGroup";
 import axios from "axios";
+import { Sparkles, Loader2 } from "lucide-react";
 
 const InvoiceForm = ({ onInvoiceSaved }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,6 +46,63 @@ const InvoiceForm = ({ onInvoiceSaved }) => {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handleAiScanFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    const reader = new FileReader();
+
+    reader.onloadend = async () => {
+      try {
+        const base64Data = reader.result;
+        const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/api/v1/invoice/scan`, {
+          image: base64Data,
+          mimeType: file.type
+        });
+
+        if (response.status === 200) {
+          const scan = response.data.data;
+          
+          // Auto-fill form fields
+          setBillTo(scan.billTo || "");
+          setBillToEmail(scan.billToEmail || "");
+          setbillToMobileNumber(scan.billToMobileNumber ? String(scan.billToMobileNumber) : "");
+          setBillToAddress(scan.billToAddress || "");
+          setGstNumber(scan.gstNumber || "");
+          if (scan.dateOfIssue) setDateOfIssue(scan.dateOfIssue);
+          if (scan.invoiceNumber) setInvoiceNumber(Number(scan.invoiceNumber));
+
+          // Map items
+          if (scan.items && scan.items.length > 0) {
+            const mappedItems = scan.items.map((item) => ({
+              id: (+new Date() + Math.floor(Math.random() * 999999)).toString(36),
+              productId: "",
+              name: item.name || "Scanned Item",
+              price: item.price ? String(item.price) : "1.00",
+              quantity: Number(item.quantity) || 1,
+              gstRate: 18,
+            }));
+            setItems(mappedItems);
+          }
+          setIsNewCustomer(true); // Treat it as new customer to register on save
+          setSelectedCustomerId("new");
+          alert("✨ AI successfully scanned receipt and populated invoice fields!");
+        }
+      } catch (err) {
+        console.error("AI Scan error:", err);
+        alert(err.response?.data?.message || "Failed to scan receipt with AI.");
+      } finally {
+        setIsScanning(false);
+        // Clear input value so same file can be selected again
+        e.target.value = null;
+      }
+    };
+
+    reader.readAsDataURL(file);
+  };
 
   const [items, setItems] = useState([
     {
@@ -257,6 +315,49 @@ const InvoiceForm = ({ onInvoiceSaved }) => {
       <Row>
         <Col md={8} lg={9}>
           <Card className="p-4 p-xl-5 my-3 my-xl-4 bg-gray-600">
+            {/* AI Scan Header */}
+            <div className="mb-4 p-3 bg-indigo-950 bg-opacity-40 border border-indigo-500 border-dashed rounded-lg text-left">
+              <div className="d-flex flex-column sm:flex-row align-items-start sm:align-items-center justify-content-between gap-3">
+                <div>
+                  <h5 className="mb-1 text-indigo-200 font-bold d-flex align-items-center" style={{ color: "#a5b4fc" }}>
+                    <Sparkles size={18} className="text-amber-400 mr-2 animate-pulse" />
+                    AI Receipt & Bill OCR Scanner
+                  </h5>
+                  <p className="text-gray-300 text-xs mb-0">
+                    Upload an invoice or receipt image, and Google Gemini AI will auto-fill the customer details, products, and prices!
+                  </p>
+                </div>
+                <div className="position-relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAiScanFile}
+                    disabled={isScanning}
+                    id="aiReceiptScanInput"
+                    className="position-absolute opacity-0 w-100 h-100 cursor-pointer"
+                    style={{ zIndex: 2, top: 0, left: 0 }}
+                  />
+                  <Button
+                    variant="indigo"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 text-sm d-flex align-items-center cursor-pointer disabled:opacity-50"
+                    disabled={isScanning}
+                  >
+                    {isScanning ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin mr-2" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} className="mr-2 text-amber-300" />
+                        Scan Receipt
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <div className="d-flex flex-row align-items-start justify-content-between mb-3 text-left">
               <div className="d-flex flex-column">
                 <div className="d-flex flex-column">
