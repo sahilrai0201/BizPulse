@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Eye, Trash2, X, Download, Mail, Loader2 } from "lucide-react";
+import { Search, Eye, Trash2, X, Download, Mail, Loader2, Sparkles } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -12,6 +12,16 @@ const InvoiceTable = ({ refreshTrigger }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [emailingInvoiceId, setEmailingInvoiceId] = useState(null);
   const [emailResult, setEmailResult] = useState(null);
+
+  // AI Reminder States
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiInvoice, setAiInvoice] = useState(null);
+  const [aiTone, setAiTone] = useState("Professional");
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [aiSubject, setAiSubject] = useState("");
+  const [aiBody, setAiBody] = useState("");
+  const [isSendingCustom, setIsSendingCustom] = useState(false);
+  const [aiSendResult, setAiSendResult] = useState(null);
 
   const handleSendEmail = async (invoiceId) => {
     try {
@@ -30,6 +40,55 @@ const InvoiceTable = ({ refreshTrigger }) => {
       alert(err.response?.data?.message || "Failed to compile or dispatch email.");
     } finally {
       setEmailingInvoiceId(null);
+    }
+  };
+
+  const openAiReminderModal = (invoice) => {
+    setAiInvoice(invoice);
+    setAiTone("Professional");
+    setAiSubject("");
+    setAiBody("");
+    setAiSendResult(null);
+    setIsAiModalOpen(true);
+  };
+
+  const handleGenerateAiDraft = async () => {
+    try {
+      setIsDrafting(true);
+      const response = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/v1/email/${aiInvoice._id}/ai-draft`,
+        { tone: aiTone }
+      );
+      if (response.status === 200) {
+        setAiSubject(response.data.draft.subject);
+        setAiBody(response.data.draft.body);
+      }
+    } catch (err) {
+      console.error("Error generating AI draft:", err);
+      alert(err.response?.data?.message || "Failed to generate AI draft.");
+    } finally {
+      setIsDrafting(false);
+    }
+  };
+
+  const handleSendCustomEmail = async () => {
+    try {
+      setIsSendingCustom(true);
+      const response = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/v1/email/${aiInvoice._id}/send-custom`,
+        { subject: aiSubject, body: aiBody }
+      );
+      if (response.status === 200) {
+        setAiSendResult({
+          success: true,
+          previewUrl: response.data.previewUrl
+        });
+      }
+    } catch (err) {
+      console.error("Error sending custom email:", err);
+      alert(err.response?.data?.message || "Failed to send custom email.");
+    } finally {
+      setIsSendingCustom(false);
     }
   };
 
@@ -214,6 +273,13 @@ const InvoiceTable = ({ refreshTrigger }) => {
                       )}
                     </button>
                     <button
+                      className="text-amber-400 hover:text-amber-300 mr-3"
+                      onClick={() => openAiReminderModal(inv)}
+                      title="AI Reminder Email"
+                    >
+                      <Sparkles size={18} />
+                    </button>
+                    <button
                       className="text-red-400 hover:text-red-300"
                       onClick={() => handleDelete(inv._id)}
                       title="Delete Invoice"
@@ -356,6 +422,147 @@ const InvoiceTable = ({ refreshTrigger }) => {
                 >
                   Close
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Billing Reminder Modal Overlay */}
+      <AnimatePresence>
+        {isAiModalOpen && aiInvoice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black bg-opacity-70 backdrop-blur-sm p-4">
+            <motion.div
+              className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-w-lg w-full text-white overflow-hidden flex flex-col"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-center bg-gray-900 p-4 border-b border-gray-700">
+                <div className="flex items-center">
+                  <Sparkles size={20} className="text-amber-400 mr-2 animate-pulse" />
+                  <h3 className="text-lg font-bold text-gray-100">
+                    AI Billing Reminder
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="text-gray-400 hover:text-white rounded-full p-1"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+                {aiSendResult ? (
+                  <div className="text-center py-6 space-y-4">
+                    <span className="text-5xl">✉️</span>
+                    <h4 className="text-xl font-semibold text-emerald-400 font-bold">Reminder Sent Successfully!</h4>
+                    <p className="text-gray-300 text-sm">
+                      The AI-generated billing reminder has been compiled and dispatched.
+                    </p>
+                    <div className="bg-emerald-950 bg-opacity-50 border border-emerald-800 p-4 rounded-lg mt-4">
+                      <a
+                        href={aiSendResult.previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg transition duration-200 text-sm font-semibold"
+                      >
+                        Open Ethereal Mailbox Preview
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-sm text-gray-300 text-left">
+                      Generate an AI-powered billing reminder for invoice <strong>#{aiInvoice.InvoiceNumber}</strong> issued to <strong>{aiInvoice.customerDetails?.BusinessName || "Walk-in Customer"}</strong>.
+                    </div>
+
+                    <div className="space-y-2 text-left">
+                      <label className="block text-sm font-semibold text-gray-300">Select AI Reminder Tone</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {["Friendly", "Professional", "Firm"].map((tone) => (
+                          <button
+                            key={tone}
+                            type="button"
+                            onClick={() => setAiTone(tone)}
+                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition cursor-pointer ${
+                              aiTone === tone
+                                ? "bg-amber-500 border-amber-400 text-white"
+                                : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+                            }`}
+                          >
+                            {tone}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiDraft}
+                      disabled={isDrafting}
+                      className="w-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition duration-200 cursor-pointer disabled:opacity-50 mt-4"
+                    >
+                      {isDrafting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin mr-2" />
+                          Drafting with AI...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={16} className="mr-2 text-amber-300" />
+                          Generate AI Draft
+                        </>
+                      )}
+                    </button>
+
+                    {/* AI Draft Display & Editor */}
+                    {aiSubject && (
+                      <div className="space-y-4 pt-4 border-t border-gray-700 text-left mt-4">
+                        <div className="space-y-1">
+                          <label className="block text-xs font-semibold text-gray-400 uppercase">Email Subject</label>
+                          <input
+                            type="text"
+                            value={aiSubject}
+                            onChange={(e) => setAiSubject(e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-semibold text-gray-400 uppercase">Email Message Body</label>
+                          <textarea
+                            rows={8}
+                            value={aiBody}
+                            onChange={(e) => setAiBody(e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-sans"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleSendCustomEmail}
+                          disabled={isSendingCustom}
+                          className="w-full flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg transition duration-200 cursor-pointer disabled:opacity-50"
+                        >
+                          {isSendingCustom ? (
+                            <>
+                              <Loader2 size={16} className="animate-spin mr-2" />
+                              Sending Email...
+                            </>
+                          ) : (
+                            <>
+                              <Mail size={16} className="mr-2" />
+                              Send AI Reminder
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </motion.div>
           </div>
