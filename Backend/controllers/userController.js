@@ -1,11 +1,18 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { verifyTurnstile } from "../utils/captcha.js";
 
 // Register a new user
 export const registerUser = async (req, res) => {
     try {
-        const { businessName, email, password, mobileNumber, gstNumber } = req.body;
+        const { businessName, email, password, mobileNumber, gstNumber, captchaToken } = req.body;
+
+        // Verify captcha
+        const isHuman = await verifyTurnstile(captchaToken, req.ip);
+        if (!isHuman) {
+            return res.status(400).json({ message: "Bot detected or invalid captcha token. Please try again." });
+        }
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -35,7 +42,13 @@ export const registerUser = async (req, res) => {
 // Login user
 export const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, captchaToken } = req.body;
+
+        // Verify captcha
+        const isHuman = await verifyTurnstile(captchaToken, req.ip);
+        if (!isHuman) {
+            return res.status(400).json({ message: "Bot detected or invalid captcha token. Please try again." });
+        }
 
         // Check if user exists
         const user = await User.findOne({ email });

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import TurnstileCaptcha from "../components/common/TurnstileCaptcha";
 
 function SignInPage() {
   const navigate = useNavigate();
@@ -8,6 +9,7 @@ function SignInPage() {
     email: "",
     password: "",
   });
+  const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const demoCredentials = {
     email: "demo@bizz.com",
@@ -23,10 +25,15 @@ function SignInPage() {
     e.preventDefault();
     setError("");
 
+    if (!captchaToken) {
+      setError("Please complete the captcha verification.");
+      return;
+    }
+
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/v1/user/login`,
-        formData
+        { ...formData, captchaToken }
       );
 
       const data = response.data;
@@ -93,16 +100,28 @@ function SignInPage() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black"
           />
         </div>
+
+        <TurnstileCaptcha 
+          onVerify={setCaptchaToken} 
+          onExpire={() => setCaptchaToken("")} 
+          onError={() => setCaptchaToken("")} 
+        />
+
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition"
+          disabled={!captchaToken}
+          className={`w-full py-2 rounded-md transition text-white font-medium ${
+            captchaToken 
+              ? "bg-blue-500 hover:bg-blue-600 cursor-pointer" 
+              : "bg-blue-500 opacity-50 cursor-not-allowed"
+          }`}
         >
           Sign In
         </button>
         <button
           type="button"
           onClick={handleDemoLogin}
-          className="w-full mt-3 bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 transition"
+          className="w-full mt-3 bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 transition font-medium"
         >
           Demo Login
         </button>
