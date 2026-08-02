@@ -99,4 +99,178 @@ router.post("/:id/email", protect, async (req, res) => {
   }
 });
 
+// Endpoint to generate an AI draft reminder email
+router.post("/:id/ai-draft", protect, async (req, res) => {
+  try {
+    const invoiceId = req.params.id;
+    const { tone } = req.body; // e.g. "Friendly", "Professional", "Firm"
+    
+    const invoice = await Invoice.findOne({ _id: invoiceId, userId: req.user.id }).populate("customerDetails");
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: "Invoice not found" });
+    }
+
+    const customer = invoice.customerDetails;
+    const customerName = customer ? customer.BusinessName : "Walk-in Customer";
+    const invoiceAmount = (invoice.InvoiceAmount || 0).toFixed(2);
+    const invoiceNumber = invoice.InvoiceNumber;
+    const dateOfIssue = invoice.DateofIssue || "N/A";
+    
+    const selectedTone = tone || "Professional";
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    let draft = null;
+
+    if (apiKey) {
+      try {
+        const prompt = `You are a helpful billing assistant for a company named "BizPulse Billing Services". 
+Draft a billing reminder email to a customer based on the following details:
+- Customer Name: ${customerName}
+- Invoice Number: #${invoiceNumber}
+- Overdue Amount: $${invoiceAmount}
+- Date of Issue: ${dateOfIssue}
+- Selected Tone: ${selectedTone} (Options: Friendly, Professional, Firm)
+
+Please draft both:
+1. A concise, engaging Subject line.
+2. A polished email Body.
+
+Return the response strictly as a JSON object (do not include markdown block formatting, just the raw JSON) matching this structure:
+{
+  "subject": "...",
+  "body": "..."
+}`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        let textResult = data.candidates[0].content.parts[0].text;
+        
+        // Clean up markdown block if the model generated it
+        textResult = textResult.replace(/^```json/, "").replace(/```$/, "").trim();
+        draft = JSON.parse(textResult);
+      } catch (err) {
+        console.warn("Gemini draft generation failed, falling back to template:", err);
+      }
+    }
+
+    // Fallback template generators
+    if (!draft) {
+      if (selectedTone === "Friendly") {
+        draft = {
+          subject: `Friendly Reminder: Invoice #${invoiceNumber} from BizPulse`,
+          body: `Hi ${customerName},\n\nHope you are doing well! This is just a gentle reminder that Invoice #${invoiceNumber} ($${invoiceAmount}) issued on ${dateOfIssue} is now ready for payment. We'd appreciate it if you could take a moment to review and process it. Thank you for your business!\n\nBest regards,\nBizPulse Billing Services`
+        };
+      } else if (selectedTone === "Firm") {
+        draft = {
+          subject: `URGENT: Outstanding Payment for Invoice #${invoiceNumber}`,
+          body: `Dear ${customerName},\n\nThis is an urgent notice regarding the outstanding payment of $${invoiceAmount} for Invoice #${invoiceNumber} issued on ${dateOfIssue}. This balance is now overdue. Please process the transaction immediately to prevent any account disruption. If you need any assistance, please contact us.\n\nUrgent Regards,\nBizPulse Billing Services`
+        };
+      } else {
+        draft = {
+          subject: `Payment Reminder: Invoice #${invoiceNumber} Outstanding`,
+          body: `Dear ${customerName},\n\nWe are writing to remind you that Invoice #${invoiceNumber} ($${invoiceAmount}) issued on ${dateOfIssue} remains outstanding. Please review the invoice details and process the payment at your earliest convenience. If payment has already been sent, please disregard this notice.\n\nSincerely,\nBizPulse Billing Services`
+        };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      draft
+    });
+  } catch (error) {
+    console.error("AI Draft Generation Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate AI billing reminder draft.",
+      error: error.message
+    });
+  }
+});
+
+// Endpoint to send a customized reminder email
+router.post("/:id/send-custom", protect, async (req, res) => {
+  try {
+    const invoiceId = req.params.id;
+    const { subject, body } = req.body;
+
+    if (!subject || !body) {
+      return res.status(400).json({ success: false, message: "Subject and Body are required." });
+    }
+
+    const invoice = await Invoice.findOne({ _id: invoiceId, userId: req.user.id }).populate("customerDetails");
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: "Invoice not found" });
+    }
+
+    const customer = invoice.customerDetails;
+    if (!customer || !customer.email) {
+      return res.status(400).json({ success: false, message: "Customer email address is not registered." });
+    }
+
+    // Configure Ethereal Test Mail Service
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+
+    const mailOptions = {
+      from: '"BizPulse Billing Services" <billing@bizpulse.com>',
+      to: customer.email,
+      subject: subject,
+      html: `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #4f46e5; margin: 0; font-size: 24px;">BizPulse Portal</h1>
+            <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em;">AI Billing Reminder</span>
+          </div>
+          
+          <div style="color: #374151; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${body}</div>
+
+          <hr style="margin-top: 40px; border: 0; border-top: 1px solid #e5e7eb;" />
+          <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-top: 20px; line-height: 1.4;">
+            This is a customized reminder dispatch from the BizPulse accounting node. Please do not reply to this email thread.
+          </p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+
+    console.log("Custom email dispatch completed. Ethereal URL:", previewUrl);
+
+    return res.status(200).json({
+      success: true,
+      message: "Customized reminder email sent successfully!",
+      previewUrl: previewUrl,
+    });
+  } catch (error) {
+    console.error("Failed to send customized email:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to dispatch customized email reminder.",
+      error: error.message,
+    });
+  }
+});
+
 export default router;
