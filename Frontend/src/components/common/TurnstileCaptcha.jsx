@@ -11,6 +11,13 @@ import React, { useEffect, useRef } from "react";
 const TurnstileCaptcha = ({ onVerify, onExpire, onError }) => {
     const containerRef = useRef(null);
     const widgetIdRef = useRef(null);
+    
+    // Store latest callbacks in a ref to avoid dependency loops in useEffect
+    const callbacksRef = useRef({ onVerify, onExpire, onError });
+    
+    useEffect(() => {
+        callbacksRef.current = { onVerify, onExpire, onError };
+    }, [onVerify, onExpire, onError]);
 
     useEffect(() => {
         let active = true;
@@ -30,13 +37,19 @@ const TurnstileCaptcha = ({ onVerify, onExpire, onError }) => {
                     widgetIdRef.current = window.turnstile.render(containerRef.current, {
                         sitekey: sitekey,
                         callback: (token) => {
-                            if (active && onVerify) onVerify(token);
+                            if (active && callbacksRef.current.onVerify) {
+                                callbacksRef.current.onVerify(token);
+                            }
                         },
                         "expired-callback": () => {
-                            if (active && onExpire) onExpire();
+                            if (active && callbacksRef.current.onExpire) {
+                                callbacksRef.current.onExpire();
+                            }
                         },
                         "error-callback": () => {
-                            if (active && onError) onError();
+                            if (active && callbacksRef.current.onError) {
+                                callbacksRef.current.onError();
+                            }
                         },
                         theme: "dark",
                     });
@@ -91,7 +104,7 @@ const TurnstileCaptcha = ({ onVerify, onExpire, onError }) => {
                 }
             }
         };
-    }, [onVerify, onExpire, onError]);
+    }, []);
 
     return (
         <div className="flex justify-center my-4">
