@@ -1,4 +1,24 @@
-#first line
+# Dependency directory
 node_modules/
-Backend/.env
-Backend/.env.*
+
+# Production build output
+dist/
+dist-ssr/
+*.local
+
+# Environment variables (contains local API keys, captchas, etc)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
