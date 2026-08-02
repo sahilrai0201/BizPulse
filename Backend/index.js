@@ -28,7 +28,7 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true }));
 connectDB();
 
-const PORT = 8088;
+const PORT = process.env.PORT || 8088;
 app.use("/api/v1/product", Product);
 app.use("/api/v1/productCategory", ProductCategory);
 app.use("/api/v1/customer", Customer);
