@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import TurnstileCaptcha from "../components/common/TurnstileCaptcha";
@@ -9,12 +9,17 @@ function SignInPage() {
     email: "",
     password: "",
   });
+  const [rememberMe, setRememberMe] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
-  const demoCredentials = {
-    email: "demo@bizz.com",
-    password: "demo1234",
-  };
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    if (savedEmail) {
+      setFormData((prev) => ({ ...prev, email: savedEmail }));
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,16 +43,21 @@ function SignInPage() {
 
       const data = response.data;
       localStorage.setItem("token", data.token);
+
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", formData.email);
+      } else {
+        localStorage.removeItem("rememberedEmail");
+      }
+      
+      // Clean up legacy saved passwords for security
+      localStorage.removeItem("rememberedPassword");
+
       navigate("/overview");
     } catch (err) {
       const message = err?.response?.data?.message || "Login failed";
       setError(message);
     }
-  };
-
-  const handleDemoLogin = () => {
-    localStorage.setItem("token", "demo-token");
-    navigate("/overview");
   };
 
   return (
@@ -83,7 +93,7 @@ function SignInPage() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black"
           />
         </div>
-        <div className="mb-6">
+        <div className="mb-4">
           <label
             htmlFor="password"
             className="block text-sm font-medium text-gray-100 mb-1"
@@ -99,6 +109,22 @@ function SignInPage() {
             required
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black"
           />
+        </div>
+
+        <div className="flex items-center mb-6">
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+          />
+          <label
+            htmlFor="rememberMe"
+            className="ml-2 block text-sm text-gray-100 cursor-pointer select-none"
+          >
+            Remember me
+          </label>
         </div>
 
         <TurnstileCaptcha 
@@ -118,19 +144,9 @@ function SignInPage() {
         >
           Sign In
         </button>
-        <button
-          type="button"
-          onClick={handleDemoLogin}
-          className="w-full mt-3 bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 transition font-medium"
-        >
-          Demo Login
-        </button>
         {error && (
           <p className="text-center text-red-400 mt-4">{error}</p>
         )}
-        <p className="text-center text-gray-100 mt-4">
-          Use demo credentials: <strong>demo@bizz.com</strong> / <strong>demo1234</strong>
-        </p>
         <p className="text-center text-gray-100 mt-4">
           Don't have an account?{" "}
           <Link to="/register" className="text-blue-500 hover:underline">
