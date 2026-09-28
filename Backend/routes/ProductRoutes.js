@@ -7,9 +7,18 @@ const router = express.Router();
 router.use(protect);
 
 router.route("/").post(registerProduct);
-router.route("/get/:id").get(getProductId);
 router.route("/getall").get(getAllProducts);
+
+// Standard RESTful ID routes
+router.route("/:id")
+  .get(getProductId)
+  .put(updateProfile)
+  .delete(deleateProduct);
+
+// Legacy and convenience aliases
+router.route("/get/:id").get(getProductId);
 router.route("/update/:id").put(updateProfile);
+router.route("/delete/:id").delete(deleateProduct);
 router.route("/deleate/:id").delete(deleateProduct);
 
 export default router;
