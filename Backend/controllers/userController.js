@@ -83,7 +83,10 @@ export const loginUser = async (req, res) => {
 // Get user by ID
 export const getUserId = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ message: "Not authorized to access this user" });
+        }
+        const user = await User.findById(req.params.id).select("-password");
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -97,14 +100,17 @@ export const getUserId = async (req, res) => {
 export const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const updates = req.body;
+        if (req.user._id.toString() !== id) {
+            return res.status(403).json({ message: "Not authorized to update this profile" });
+        }
+        const updates = { ...req.body };
 
         // If updating password, hash it
         if (updates.password) {
             updates.password = await bcrypt.hash(updates.password, 10);
         }
 
-        const updatedUser = await User.findByIdAndUpdate(id, updates, { new: true });
+        const updatedUser = await User.findByIdAndUpdate(id, updates, { new: true }).select("-password");
 
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });
@@ -120,6 +126,9 @@ export const updateUser = async (req, res) => {
 export const deleateUser = async (req, res) => {
     try {
         const { id } = req.params;
+        if (req.user._id.toString() !== id) {
+            return res.status(403).json({ message: "Not authorized to delete this profile" });
+        }
         const deletedUser = await User.findByIdAndDelete(id);
 
         if (!deletedUser) {

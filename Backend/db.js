@@ -44,15 +44,16 @@ const seedDatabase = async () => {
 
 const connectDB = async () => {
   try {
-    console.log("Connecting to MongoDB Atlas at:", process.env.MONGO_URI);
-    // Timeout in 3.5 seconds to fall back if blocked/un-whitelisted
+    console.log("Connecting to MongoDB Atlas...");
+    // Timeout in 10 seconds to allow reliable SSL/DNS handshake on cloud hosts
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 3500
+      serverSelectionTimeoutMS: 10000
     });
     console.log("mongoDB Atlas is connected successfully!");
     await seedDatabase();
   } catch (err) {
-    console.warn("MongoDB Atlas connection failed or timed out. Falling back to local In-Memory database...");
+    console.warn("MongoDB Atlas connection failed or timed out:", err.message);
+    console.warn("Falling back to local In-Memory database...");
     try {
       const mongoServer = await MongoMemoryServer.create();
       const mongoUri = mongoServer.getUri();
